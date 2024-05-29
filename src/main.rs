@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use commands::new::New;
+use commands::{new::New, zip::Zip, MyCommand};
 use config::init_config;
 
 mod commands;
@@ -15,6 +15,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     New(New),
+    Zip(Zip),
 }
 fn main() {
     run();
@@ -36,8 +37,7 @@ fn run() {
     let config_obj = config_init();
     let cli = Cli::parse();
     match &cli.command {
-        Commands::New(new_obj) => {
-            new_obj.run(&config_obj);
-        }
+        Commands::New(new_obj) => new_obj.run(&config_obj),
+        Commands::Zip(zip_obj) => zip_obj.run(&config_obj),
     }
 }

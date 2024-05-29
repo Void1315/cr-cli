@@ -6,6 +6,8 @@ use toml::{Table, Value};
 
 use crate::config::{init_config, update_config_file};
 
+use super::MyCommand;
+
 // new 命令创建一个工作目录
 
 const TABLE_NAME: &str = "new";
@@ -44,28 +46,14 @@ impl IntoIterator for &New {
     }
 }
 
-// 通用性操作 TODO: 提出一个trait
-impl New {
-    pub fn run(&self, config_obj: &toml::Table) {
+impl MyCommand for &New {
+    fn run(&self, config_obj: &toml::Table) {
         let filed_map = self.parse_field(config_obj);
         // TODO: 业务逻辑
         self.create_project(&filed_map);
-        // dbg!(filed_map);
     }
-
-    fn parse_field(&self, config_obj: &Table) -> Table {
-        let mut global_filed_map = super::get_global_filed_map(config_obj);
-
-        let filed_map = self.get_filed_map(config_obj);
-        // filed_map中的字段覆盖global_filed_map中的字段
-        global_filed_map.extend(filed_map);
-
-        // 遍历self的字段 如果有值则覆盖global_filed_map
-        for (key, value) in self.into_iter() {
-            global_filed_map.insert(key, value);
-        }
-
-        global_filed_map
+    fn get_global_filed_map(&self, config_obj: &Table) -> Table {
+        super::get_global_filed_map(config_obj)
     }
 
     fn get_filed_map(&self, config_obj: &Table) -> Table {
@@ -166,9 +154,9 @@ impl New {
             .as_integer()
             .unwrap();
         courses_number += 1;
-        let mut new_filed_map = config_obj.get("new").unwrap().as_table().unwrap().clone();
+        let mut new_filed_map = config_obj.get(TABLE_NAME).unwrap().as_table().unwrap().clone();
         new_filed_map.insert("courses_number".to_string(), Value::from(courses_number));
-        config_obj.insert("new".to_string(), Value::from(new_filed_map));
+        config_obj.insert(TABLE_NAME.to_string(), Value::from(new_filed_map));
 
         // 更新配置文件
         match update_config_file(&config_obj) {

@@ -4,6 +4,10 @@ name = "cr-cli"
 version = "0.1.0"
 
 [dependencies]
+chrono = "0.4.38"
 clap = {version = "4.5.4", features = ["derive", "unicode"]}
 colored = "2.1.0"
+rand = "0.8.5"
+sevenz-rust = "0.6.0"
 toml = "0.8.13"
+walkdir = "2.5.0"

@@ -1,7 +1,13 @@
 [global]
+user_name = "张三"
+class_name = "CR49"
 
 [new]
 course_name = "C++" # 本次课程内容名称的默认名称
 courses_number = 13 # 课程序号 将会创建[courses_number-course_name]的文件夹
 note_name = "笔记.md" # 笔记文件的默认名称
-workspace = "D:\\work\\c++\\study" # 工作目录 将会在此目录下创建新的文件夹
+workspace = 'D:\work\c++\study' # 工作目录 将会在此目录下创建新的文件夹
+
+[zip]
+dir_path = "" # 压缩文件夹的路径 必填参数
+ignore = [".vs", "Debug", "Release", "x64", ".git"] # 压缩时忽略的文件夹
