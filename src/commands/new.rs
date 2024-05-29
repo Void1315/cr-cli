@@ -1,9 +1,10 @@
-use cfg::Value;
+use std::path::Path;
+
 use clap::Parser;
 use colored::Colorize;
-use std::collections::HashMap;
+use toml::{Table, Value};
 
-use crate::config;
+use crate::config::{init_config, update_config_file};
 
 // new 命令创建一个工作目录
 
@@ -45,14 +46,14 @@ impl IntoIterator for &New {
 
 // 通用性操作 TODO: 提出一个trait
 impl New {
-    pub fn run(&self, config_obj: &cfg::Config) {
-        let filed_map = self.parse_field(&config_obj);
+    pub fn run(&self, config_obj: &toml::Table) {
+        let filed_map = self.parse_field(config_obj);
         // TODO: 业务逻辑
         self.create_project(&filed_map);
-        dbg!(filed_map);
+        // dbg!(filed_map);
     }
 
-    fn parse_field(&self, config_obj: &cfg::Config) -> HashMap<String, Value> {
+    fn parse_field(&self, config_obj: &Table) -> Table {
         let mut global_filed_map = super::get_global_filed_map(config_obj);
 
         let filed_map = self.get_filed_map(config_obj);
@@ -67,12 +68,15 @@ impl New {
         global_filed_map
     }
 
-    fn get_filed_map(&self, config_obj: &cfg::Config) -> HashMap<String, Value> {
-        match config_obj.get_table(TABLE_NAME) {
-            Ok(table) => table,
-            Err(err) => {
-                eprintln!("Error 解析{TABLE_NAME}配置文件错误: {:?}", err);
-                std::process::exit(1);
+    fn get_filed_map(&self, config_obj: &Table) -> Table {
+        match config_obj.get(TABLE_NAME) {
+            Some(table) => {
+                let table = table.as_table().unwrap();
+                table.clone()
+            }
+            None => {
+                // TODO: toml中的配置不存在 合理吗？
+                Table::new()
             }
         }
     }
@@ -83,12 +87,13 @@ impl New {
 impl New {
     /// 在工作目录中创建一个项目
     /// 若工作目录不存在则创建
-    fn create_project(&self, field_map: &HashMap<String, Value>) {
-        let workspace = field_map.get("workspace").unwrap().clone().into_string().unwrap();
+    fn create_project(&self, field_map: &Table) {
+        let workspace = field_map.get("workspace").unwrap().as_str().unwrap();
+
         // 检查工作目录是否存在
-        if !std::path::Path::new(&workspace).exists() {
-            println!("创建工作目录: {}", &workspace.green());
-            match std::fs::create_dir_all(&workspace) {
+        if !Path::new(workspace).exists() {
+            println!("创建工作目录: {}", workspace.green());
+            match std::fs::create_dir_all(workspace) {
                 Ok(_) => {}
                 Err(err) => {
                     panic!("Error 创建工作目录失败: {:?}", err);
@@ -96,52 +101,56 @@ impl New {
             }
         }
         // 创建项目
-        let project_path = self.add_project_dir(&workspace, &field_map);
+        let project_path = self.add_project_dir(workspace, field_map);
         // 添加笔记
-        self.add_note_file(&project_path);
+        self.add_note_file(&project_path, field_map);
     }
 
     /// 创建项目文件夹
-    fn add_project_dir(&self, workspace: &str, field_map: &HashMap<String, Value>) -> String {
-        let project_name = self.get_project_name(&field_map);
-        let project_path = format!("{}/{}", workspace, project_name);
+    fn add_project_dir(&self, workspace: &str, field_map: &Table) -> String {
+        let project_name = self.get_project_name(field_map);
+        let project_path = Path::new(workspace).join(project_name);
+        let project_path_str = project_path.to_str().unwrap();
         // 判断是否存在项目文件夹
         if std::path::Path::new(&project_path).exists() {
             println!(
                 "{} 项目文件夹已存在: {}",
                 "Warning".yellow(),
-                project_path.yellow()
+                project_path_str.yellow()
             );
-            return project_path;
+            self.update_config_courses_number(field_map); // 存在的项目 也要更新配置中的课程数
+            return project_path_str.to_string();
         }
 
-        println!("创建项目: {}", project_path.green());
+        println!("创建项目: {}", project_path_str.green());
         match std::fs::create_dir_all(&project_path) {
             Ok(_) => {
                 // 更新配置中的课程数
-
+                self.update_config_courses_number(field_map);
             }
             Err(err) => {
                 panic!("Error 创建项目失败: {:?}", err);
             }
         }
-        project_path
+        project_path_str.to_string()
     }
 
     /// 添加笔记文件
-    fn add_note_file(&self, project_path: &str) {
-        let note_name = self.note_name.as_ref().unwrap();
-        let note_path = format!("{}/{}", project_path, note_name);
+    fn add_note_file(&self, project_path: &str, field_map: &Table) {
+        let note_name = field_map.get("note_name").unwrap().as_str().unwrap();
+        // 路径不能这样拼接
+        let note_path = Path::new(project_path).join(note_name);
+        let note_path_str = note_path.to_str().unwrap();
         // 判断笔记是否存在
-        if std::path::Path::new(&note_path).exists() {
+        if note_path.exists() {
             println!(
                 "{} 笔记文件已存在: {}",
                 "Warning".yellow(),
-                note_path.yellow()
+                note_path_str.yellow()
             );
             return;
         }
-        println!("创建笔记: {}", note_path.green());
+        println!("创建笔记: {}", note_path_str.green());
         match std::fs::write(&note_path, "") {
             Ok(_) => {}
             Err(err) => {
@@ -149,20 +158,37 @@ impl New {
             }
         }
     }
-    fn update_config_courses_number(field_map: &mut HashMap<String, Value>, config_obj: &cfg::Config){
-        let mut courses_number = field_map.get("courses_number").unwrap().clone().into_uint().unwrap();
-        courses_number = courses_number + 1;
-        field_map.insert("courses_number".to_string(), Value::from(courses_number));
-        
-        // config_obj.set(TABLE_NAME, field_map);
-        // config_obj.
-    }
+    fn update_config_courses_number(&self, field_map: &Table) {
+        let mut config_obj = init_config().unwrap();
+        let mut courses_number = field_map
+            .get("courses_number")
+            .unwrap()
+            .as_integer()
+            .unwrap();
+        courses_number += 1;
+        let mut new_filed_map = config_obj.get("new").unwrap().as_table().unwrap().clone();
+        new_filed_map.insert("courses_number".to_string(), Value::from(courses_number));
+        config_obj.insert("new".to_string(), Value::from(new_filed_map));
 
+        // 更新配置文件
+        match update_config_file(&config_obj) {
+            Ok(_) => {}
+            Err(err) => {
+                // 按理来说不应该出现这种情况
+                println!("{} {}", "Error 更新配置文件失败".red(), err);
+                println!("{} {}", "更新 courses_number 字段失败，这会导致下次创建错误的项目文件夹，请手动更新courses_number字段到新的值: ".yellow(), courses_number);
+            }
+        }
+    }
     /// 获取项目文件夹名称
-    fn get_project_name(&self, field_map: &HashMap<String, Value>) -> String {
-        let course_name = field_map.get("course_name").unwrap().clone().into_string().unwrap();
-        let mut courses_number = field_map.get("courses_number").unwrap().clone().into_uint().unwrap();
-        courses_number = courses_number + 1;
+    fn get_project_name(&self, field_map: &Table) -> String {
+        let course_name = field_map.get("course_name").unwrap().as_str().unwrap();
+        let mut courses_number = field_map
+            .get("courses_number")
+            .unwrap()
+            .as_integer()
+            .unwrap();
+        courses_number += 1;
         format!("{}-{}", courses_number, course_name)
     }
 }

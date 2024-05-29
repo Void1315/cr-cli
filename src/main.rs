@@ -1,4 +1,3 @@
-use cfg::Config;
 use clap::{Parser, Subcommand};
 use commands::new::New;
 use config::init_config;
@@ -21,7 +20,7 @@ fn main() {
     run();
 }
 
-fn config_init() -> Config {
+fn config_init() -> toml::Table {
     // 1. 初始化配置
     let result = init_config();
     if let Ok(config_obj) = result {
