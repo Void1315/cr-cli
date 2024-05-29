@@ -1,6 +1,10 @@
 [package]
+edition = "2021"
 name = "cr-cli"
 version = "0.1.0"
-edition = "2021"
 
 [dependencies]
+cfg = {package = "config", version = "0.14.0", features = ["toml"]}
+clap = {version = "4.5.4", features = ["derive", "unicode"]}
+colored = "2.1.0"
+toml = "0.8.13"
