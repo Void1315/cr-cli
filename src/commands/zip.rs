@@ -5,11 +5,15 @@ use colored::Colorize;
 use toml::Table;
 use walkdir::WalkDir;
 
+use crate::config::get_default_zip_file_name;
+
 use super::MyCommand;
 
 const TABLE_NAME: &str = "zip";
 
 #[derive(Parser, Debug)]
+/// 关于压缩的命令
+/// 命令可以帮你压缩文件夹 并生成默认班级格式的压缩文件
 pub struct Zip {
     #[arg(long, short)]
     pub ignore: Option<Vec<String>>,
@@ -20,7 +24,7 @@ pub struct Zip {
 impl MyCommand for &Zip {
     fn run(&self, config_obj: &toml::Table) {
         let filed_map = self.parse_field(config_obj);
-        self.zip(&filed_map)
+        self.zip(&filed_map, config_obj);
     }
     fn get_global_filed_map(&self, config_obj: &Table) -> Table {
         super::get_global_filed_map(config_obj)
@@ -155,8 +159,7 @@ impl Zip {
         println!("压缩文件大小: {}KB", zip_info.len() / 1024);
     }
 
-    // TODO: 要不要拆
-    fn zip(&self, filed_map: &Table) {
+    fn zip(&self, filed_map: &Table, config_obj: &Table) {
         let dir_path_str = filed_map.get("dir_path").unwrap().as_str().unwrap();
         let mut ignore_dir = filed_map
             .get("ignore")
@@ -166,12 +169,7 @@ impl Zip {
             .iter()
             .map(|v| v.as_str().unwrap().to_string())
             .collect::<Vec<String>>();
-
-        let user_name = filed_map.get("user_name").unwrap().as_str().unwrap();
-        let class_name = filed_map.get("class_name").unwrap().as_str().unwrap();
-        let time_str = chrono::Local::now().format("%Y%m%d").to_string();
-        let file_name_str = format!("{}_{}_{}.7z", class_name, user_name, time_str);
-
+        let file_name_str = get_default_zip_file_name(config_obj);
         Zip::_zip(dir_path_str, &mut ignore_dir, &file_name_str)
     }
 }

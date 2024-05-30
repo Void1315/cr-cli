@@ -23,3 +23,11 @@ pub fn update_config_file(table: &Table) -> Result<(), Box<dyn Error>> {
     fs::write(CONFIG_FILE, content)?;
     Ok(())
 }
+
+pub fn get_default_zip_file_name(config_obj: &Table) -> String {
+    let global_table = config_obj.get("global").unwrap().as_table().unwrap();
+    let user_name = global_table.get("user_name").unwrap().as_str().unwrap();
+    let class_name = global_table.get("class_name").unwrap().as_str().unwrap();
+    let time_str = chrono::Local::now().format("%Y%m%d").to_string();
+    format!("{}_{}_{}.7z", class_name, user_name, time_str)
+}

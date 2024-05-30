@@ -1,10 +1,12 @@
 use std::{fs, io::Write, path::Path};
 
+use crate::config::get_default_zip_file_name;
 use clap::Parser;
 use colored::Colorize;
 use futures::executor::block_on;
 use mail_builder::MessageBuilder;
 use mail_send::SmtpClientBuilder;
+
 use super::zip::Zip;
 use super::MyCommand;
 
@@ -12,14 +14,17 @@ const ATTACHMENT_CONTENT_TYPE: &str = "application/x-7z-compressed";
 const TABLE_NAME: &str = "mail";
 
 #[derive(Parser, Debug)]
+/// 发送邮件的命令
+/// 可以生成本地邮件文件 和发送邮件，并支持自动压缩,自动发送
 pub struct Mail {
-    #[arg(long, short)]
+    #[arg(long, short, default_missing_value = "true")]
+    /// 是否发送邮件 有时候你可能需要
     pub send: Option<bool>,
 
-    #[arg(long, short)]
+    #[arg(long, short,  default_missing_value = "true")]
     pub auto: Option<bool>, // 自动打包自动发送
 
-    #[arg(long)]
+    #[arg(long, short='f')]
     // 附件路径 可选
     pub attachment: Option<String>,
     #[arg(long, short)]
@@ -138,13 +143,19 @@ impl Mail {
             Some(auto) => {
                 if auto.as_bool().unwrap() {
                     // TODO: 优化这块代码
-                    let user_name = field_map.get("user_name").unwrap().as_str().unwrap();
-                    let class_name = field_map.get("class_name").unwrap().as_str().unwrap();
-                    let time_str = chrono::Local::now().format("%Y%m%d").to_string();
-                    let file_name_str = format!("{}_{}_{}.7z", class_name, user_name, time_str);
+
+                    let file_name_str = get_default_zip_file_name(config_obj);
                     let ignore_dir = config_obj.get("zip").unwrap().as_table().unwrap().clone();
-                    let ignore_dir = ignore_dir.get("ignore").unwrap().as_array().unwrap().clone();
-                    let mut ignore_dir = ignore_dir.iter().map(|v| v.as_str().unwrap().to_string()).collect::<Vec<String>>();
+                    let ignore_dir = ignore_dir
+                        .get("ignore")
+                        .unwrap()
+                        .as_array()
+                        .unwrap()
+                        .clone();
+                    let mut ignore_dir = ignore_dir
+                        .iter()
+                        .map(|v| v.as_str().unwrap().to_string())
+                        .collect::<Vec<String>>();
 
                     Zip::_zip(".", &mut ignore_dir, &file_name_str);
                 }
