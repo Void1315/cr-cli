@@ -163,7 +163,6 @@ impl New {
             .clone();
         new_filed_map.insert("courses_number".to_string(), Value::from(courses_number));
         config_obj.insert(TABLE_NAME.to_string(), Value::from(new_filed_map));
-        println!("{:}", config_obj);
         // 更新配置文件
         match update_config_file(&config_obj) {
             Ok(_) => {}
