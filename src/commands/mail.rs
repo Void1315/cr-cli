@@ -20,7 +20,6 @@ pub struct Mail {
     #[arg(long, short)]
     /// 是否发送邮件
     pub send: bool,
-
     #[arg(long, short)]
     /// 自动打包，自动发送，一键完成
     pub auto: bool,

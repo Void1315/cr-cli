@@ -13,14 +13,19 @@ use super::MyCommand;
 const TABLE_NAME: &str = "new";
 
 #[derive(Parser, Debug)]
+/// 将会创建一个新的项目目录。使用以下参数进行定制
 pub struct New {
     #[arg(long)]
+    /// 课程名称，文件夹名称一部分。例如： 虚基类
     pub course_name: Option<String>,
     #[arg(long)]
+    /// 课程序号，文件夹名称的一部分。例如: 12
     pub courses_number: Option<u32>,
     #[arg(long)]
+    /// 笔记文件名称，包含文件后缀。例如: 笔记.md
     pub note_name: Option<String>,
-    #[arg(long)]
+    #[arg(long, short = 'w')]
+    /// 工作目录文件夹路径，将会在此目录中创建新的项目，例如: /home/username/workspace。
     pub workspace: Option<String>,
 }
 
@@ -49,7 +54,6 @@ impl IntoIterator for &New {
 impl MyCommand for &New {
     fn run(&self, config_obj: &toml::Table) {
         let filed_map = self.parse_field(config_obj);
-        // TODO: 业务逻辑
         self.create_project(&filed_map);
     }
     fn get_global_filed_map(&self, config_obj: &Table) -> Table {
@@ -63,7 +67,6 @@ impl MyCommand for &New {
                 table.clone()
             }
             None => {
-                // TODO: toml中的配置不存在 合理吗？
                 Table::new()
             }
         }
@@ -171,12 +174,11 @@ impl New {
     /// 获取项目文件夹名称
     fn get_project_name(&self, field_map: &Table) -> String {
         let course_name = field_map.get("course_name").unwrap().as_str().unwrap();
-        let mut courses_number = field_map
+        let courses_number = field_map
             .get("courses_number")
             .unwrap()
             .as_integer()
             .unwrap();
-        courses_number += 1;
         format!("{}-{}", courses_number, course_name)
     }
 }

@@ -16,8 +16,12 @@ const TABLE_NAME: &str = "zip";
 /// 命令可以帮你压缩文件夹 并生成默认班级格式的压缩文件
 pub struct Zip {
     #[arg(long, short)]
+    /// 需要忽略的文件夹名称，例如输入: .git .vs Debug
+    /// 将会在进行压缩时忽略这些文件夹
     pub ignore: Option<Vec<String>>,
     #[arg(long, short)]
+    /// 需要压缩的文件夹路径,例如: /home/username/workspace
+    /// 将会递归的压缩这个文件夹，生成一个压缩文件
     pub dir_path: String,
 }
 
