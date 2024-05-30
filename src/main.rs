@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
-use commands::{new::New, zip::Zip, MyCommand};
+use commands::{mail::Mail, new::New, zip::Zip, MyCommand};
 use config::init_config;
-
+use ::tokio;
 mod commands;
 mod config;
 
@@ -16,8 +16,11 @@ struct Cli {
 enum Commands {
     New(New),
     Zip(Zip),
+    Mail(Mail),
 }
-fn main() {
+
+#[tokio::main]
+async fn main() {
     run();
 }
 
@@ -39,5 +42,6 @@ fn run() {
     match &cli.command {
         Commands::New(new_obj) => new_obj.run(&config_obj),
         Commands::Zip(zip_obj) => zip_obj.run(&config_obj),
+        Commands::Mail(mail_obj) => mail_obj.run(&config_obj),
     }
 }

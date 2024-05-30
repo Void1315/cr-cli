@@ -2,7 +2,7 @@ use toml::Table;
 
 pub mod new;
 pub mod zip;
-
+pub mod mail;
 const GLOBAL_TABLE_NAME: &str = "global";
 
 pub fn get_global_filed_map(config_obj: &toml::Table) -> Table {

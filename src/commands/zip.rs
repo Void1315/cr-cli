@@ -59,18 +59,13 @@ impl IntoIterator for &Zip {
 
 // 业务逻辑
 impl Zip {
-    fn zip(&self, filed_map: &Table) {
-        // 压缩文件夹
-        // 1. 获取文件夹路径
-        let dir_path_str = filed_map.get("dir_path").unwrap().as_str().unwrap();
+    pub fn _zip(dir_path_str: &str, ignore_dir: &mut Vec<String>, file_name_str: &str) {
         let mut dir_path = Path::new(dir_path_str).to_owned();
         let current_dir = std::env::current_dir().unwrap();
-        //
         if dir_path.is_relative() {
             // 获取当前命令行所在路径
             dir_path = current_dir.join(dir_path);
         }
-
         if !dir_path.is_dir() {
             // 带颜色打印eprintfln
             eprintln!(
@@ -94,8 +89,7 @@ impl Zip {
         }
 
         // 3. 复制文件
-        let mut ignore_dir = filed_map.get("ignore").unwrap().as_array().unwrap().clone();
-        ignore_dir.push(toml::Value::String(temp_dir_name.clone()));
+        ignore_dir.push(temp_dir_name.clone());
 
         // 遍历当前文件夹下所有文件
         let it = WalkDir::new(&dir_path).into_iter();
@@ -110,7 +104,7 @@ impl Zip {
             // 判断是否在忽略列表中
             let mut is_ignore = false;
             for the_path_str in path_vec {
-                if ignore_dir.contains(&toml::Value::String(the_path_str.to_string())) {
+                if ignore_dir.contains(&the_path_str.to_string()) {
                     is_ignore = true;
                     break;
                 }
@@ -139,12 +133,6 @@ impl Zip {
         }
 
         // 4. 压缩文件夹
-        let user_name = filed_map.get("user_name").unwrap().as_str().unwrap();
-        let class_name = filed_map.get("class_name").unwrap().as_str().unwrap();
-        let time_str = chrono::Local::now().format("%Y%m%d").to_string();
-        let zip_file_name = format!("{}_{}_{}", class_name, user_name, time_str); // 不带后缀
-
-        let file_name_str = format!("{}.7z", zip_file_name);
         match sevenz_rust::compress_to_path(&temp_dir, &file_name_str) {
             Ok(_) => {
                 println!("{} {}", "压缩成功:".green(), file_name_str);
@@ -163,8 +151,28 @@ impl Zip {
         // 6. 打印压缩文件信息
         let zip_file = current_dir.join(&file_name_str);
         let zip_info = zip_file.metadata().unwrap();
-        println!("压缩文件路径: {}", file_name_str);
+        println!("压缩文件路径: {}", zip_file.display());
         println!("压缩文件大小: {}KB", zip_info.len() / 1024);
+    }
+
+    // TODO: 要不要拆
+    fn zip(&self, filed_map: &Table) {
+        let dir_path_str = filed_map.get("dir_path").unwrap().as_str().unwrap();
+        let mut ignore_dir = filed_map
+            .get("ignore")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect::<Vec<String>>();
+
+        let user_name = filed_map.get("user_name").unwrap().as_str().unwrap();
+        let class_name = filed_map.get("class_name").unwrap().as_str().unwrap();
+        let time_str = chrono::Local::now().format("%Y%m%d").to_string();
+        let file_name_str = format!("{}_{}_{}.7z", class_name, user_name, time_str);
+
+        Zip::_zip(dir_path_str, &mut ignore_dir, &file_name_str)
     }
 }
 
