@@ -24,7 +24,7 @@ pub struct Mail {
     #[arg(long, short)]
     /// 自动打包，自动发送，一键完成
     pub auto: bool,
-    #[arg(long, short='f')]
+    #[arg(long, short = 'f')]
     /// 附件路径 可选
     pub attachment: Option<String>,
     #[arg(long, short)]
@@ -90,22 +90,20 @@ impl Mail {
             }
         }
 
-        match field_map.get("send") {
-            None => {}
-            Some(send) => {
-                if !send.as_bool().unwrap() {
-                    return;
-                }
-            }
+        let is_send = match field_map.get("send") {
+            None => false,
+            Some(send) => send.as_bool().unwrap(),
+        };
+        if is_send {
+            smtp_client_builder
+                .connect()
+                .await
+                .unwrap()
+                .send(meessage_builder)
+                .await
+                .unwrap();
+            println!("{}", "发送邮件成功！".green());
         }
-
-        smtp_client_builder
-            .connect()
-            .await
-            .unwrap()
-            .send(meessage_builder)
-            .await
-            .unwrap();
     }
 
     fn output_to_file(&self, output: &str, message_data: &[u8]) {
