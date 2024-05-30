@@ -4,7 +4,7 @@ use clap::Parser;
 use colored::Colorize;
 use toml::{Table, Value};
 
-use crate::config::{init_config, update_config_file};
+use crate::config::update_config_file;
 
 use super::MyCommand;
 
@@ -54,7 +54,7 @@ impl IntoIterator for &New {
 impl MyCommand for &New {
     fn run(&self, config_obj: &toml::Table) {
         let filed_map = self.parse_field(config_obj);
-        self.create_project(&filed_map);
+        self.create_project(&filed_map, config_obj);
     }
     fn get_global_filed_map(&self, config_obj: &Table) -> Table {
         super::get_global_filed_map(config_obj)
@@ -66,9 +66,7 @@ impl MyCommand for &New {
                 let table = table.as_table().unwrap();
                 table.clone()
             }
-            None => {
-                Table::new()
-            }
+            None => Table::new(),
         }
     }
 }
@@ -78,7 +76,7 @@ impl MyCommand for &New {
 impl New {
     /// 在工作目录中创建一个项目
     /// 若工作目录不存在则创建
-    fn create_project(&self, field_map: &Table) {
+    fn create_project(&self, field_map: &Table, config_obj: &Table) {
         let workspace = field_map.get("workspace").unwrap().as_str().unwrap();
 
         // 检查工作目录是否存在
@@ -92,13 +90,13 @@ impl New {
             }
         }
         // 创建项目
-        let project_path = self.add_project_dir(workspace, field_map);
+        let project_path = self.add_project_dir(workspace, field_map, config_obj);
         // 添加笔记
         self.add_note_file(&project_path, field_map);
     }
 
     /// 创建项目文件夹
-    fn add_project_dir(&self, workspace: &str, field_map: &Table) -> String {
+    fn add_project_dir(&self, workspace: &str, field_map: &Table, config_obj: &Table) -> String {
         let project_name = self.get_project_name(field_map);
         let project_path = Path::new(workspace).join(project_name);
         let project_path_str = project_path.to_str().unwrap();
@@ -109,7 +107,7 @@ impl New {
                 "Warning".yellow(),
                 project_path_str.yellow()
             );
-            self.update_config_courses_number(field_map); // 存在的项目 也要更新配置中的课程数
+            self.update_config_courses_number(field_map, config_obj); // 存在的项目 也要更新配置中的课程数
             return project_path_str.to_string();
         }
 
@@ -117,7 +115,7 @@ impl New {
         match std::fs::create_dir_all(&project_path) {
             Ok(_) => {
                 // 更新配置中的课程数
-                self.update_config_courses_number(field_map);
+                self.update_config_courses_number(field_map, config_obj);
             }
             Err(err) => {
                 panic!("Error 创建项目失败: {:?}", err);
@@ -149,18 +147,23 @@ impl New {
             }
         }
     }
-    fn update_config_courses_number(&self, field_map: &Table) {
-        let mut config_obj = init_config().unwrap();
+    fn update_config_courses_number(&self, field_map: &Table, config_obj: &Table) {
+        let mut config_obj = config_obj.clone();
         let mut courses_number = field_map
             .get("courses_number")
             .unwrap()
             .as_integer()
             .unwrap();
         courses_number += 1;
-        let mut new_filed_map = config_obj.get(TABLE_NAME).unwrap().as_table().unwrap().clone();
+        let mut new_filed_map = config_obj
+            .get(TABLE_NAME)
+            .unwrap()
+            .as_table()
+            .unwrap()
+            .clone();
         new_filed_map.insert("courses_number".to_string(), Value::from(courses_number));
         config_obj.insert(TABLE_NAME.to_string(), Value::from(new_filed_map));
-
+        println!("{:}", config_obj);
         // 更新配置文件
         match update_config_file(&config_obj) {
             Ok(_) => {}

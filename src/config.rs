@@ -19,8 +19,11 @@ pub fn init_config() -> Result<Table, Box<dyn Error>> {
 }
 
 pub fn update_config_file(table: &Table) -> Result<(), Box<dyn Error>> {
+    let exe_path = std::env::current_exe()?;
+    let exe_dir = exe_path.parent().unwrap();
+    let config_file = exe_dir.join(CONFIG_FILE);
     let content = toml::to_string(table)?;
-    fs::write(CONFIG_FILE, content)?;
+    fs::write(config_file, content)?;
     Ok(())
 }
 
