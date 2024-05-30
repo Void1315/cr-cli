@@ -17,18 +17,18 @@ const TABLE_NAME: &str = "mail";
 /// 发送邮件的命令
 /// 可以生成本地邮件文件 和发送邮件，并支持自动压缩,自动发送
 pub struct Mail {
-    #[arg(long, short, default_missing_value = "true")]
-    /// 是否发送邮件 有时候你可能需要
-    pub send: Option<bool>,
+    #[arg(long, short)]
+    /// 是否发送邮件
+    pub send: bool,
 
-    #[arg(long, short,  default_missing_value = "true")]
-    pub auto: Option<bool>, // 自动打包自动发送
-
+    #[arg(long, short)]
+    /// 自动打包，自动发送，一键完成
+    pub auto: bool,
     #[arg(long, short='f')]
-    // 附件路径 可选
+    /// 附件路径 可选
     pub attachment: Option<String>,
     #[arg(long, short)]
-    // 邮件生成后的原始信息 是否输出到文件
+    /// 将邮件生成的原始信息输出到文件
     pub output: Option<String>,
 }
 
@@ -38,9 +38,7 @@ impl IntoIterator for &Mail {
 
     fn into_iter(self) -> Self::IntoIter {
         let mut map = std::collections::HashMap::new();
-        if let Some(send) = self.send {
-            map.insert("send".to_string(), toml::Value::Boolean(send));
-        }
+        map.insert("send".to_string(), toml::Value::Boolean(self.send));
         if let Some(attachment) = &self.attachment {
             map.insert(
                 "attachment".to_string(),
@@ -50,9 +48,7 @@ impl IntoIterator for &Mail {
         if let Some(output) = &self.output {
             map.insert("output".to_string(), toml::Value::String(output.clone()));
         }
-        if let Some(auto) = self.auto {
-            map.insert("auto".to_string(), toml::Value::Boolean(auto));
-        }
+        map.insert("auto".to_string(), toml::Value::Boolean(self.auto));
         map.into_iter()
     }
 }
@@ -61,7 +57,6 @@ impl MyCommand for &Mail {
     fn run(&self, config_obj: &toml::Table) {
         let filed_map = self.parse_field(config_obj);
         block_on(self.send(&filed_map, config_obj));
-        println!("{:?}", filed_map);
     }
 
     fn get_global_filed_map(&self, config_obj: &toml::Table) -> toml::Table {
@@ -89,6 +84,7 @@ impl Mail {
         match field_map.get("output") {
             None => {}
             Some(output) => {
+                println!("{} {output}", "输出到文件: ".blue());
                 let message_data = meessage_builder.clone().write_to_vec().unwrap();
                 self.output_to_file(output.as_str().unwrap(), &message_data);
             }
