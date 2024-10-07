@@ -155,15 +155,15 @@ impl Mail {
             }
             None => {}
         }
-
+        let user_name = field_map.get("user_name").unwrap().as_str().unwrap();
+        let class_name = field_map.get("class_name").unwrap().as_str().unwrap();
+        let time_str = chrono::Local::now().format("%Y%m%d").to_string();
         // match附件路径是否存在
         let attachment_path_str = match field_map.get("attachment") {
             Some(attachment) => attachment.as_str().unwrap().to_string(),
             None => {
                 // 用户没有输入附件路径 使用默认的附件路径
-                let user_name = field_map.get("user_name").unwrap().as_str().unwrap();
-                let class_name = field_map.get("class_name").unwrap().as_str().unwrap();
-                let time_str = chrono::Local::now().format("%Y%m%d").to_string();
+                
                 format!("{}_{}_{}.7z", class_name, user_name, time_str)
             }
         };
@@ -171,7 +171,7 @@ impl Mail {
         let current_path = std::env::current_dir().unwrap();
         let attachment_path = current_path.join(attachment_path_str);
         let attachment_name = attachment_path.file_name().unwrap().to_str().unwrap(); // 附件名称
-
+        let subject = format!("{}_{}_{}", class_name, user_name, time_str);
         // 判断附件路径是否存在
         if !attachment_path.exists() {
             eprintln!("{} {:?}", "Error 附件路径不存在:".red(), attachment_path);
@@ -181,6 +181,7 @@ impl Mail {
         let file_data = fs::read(&attachment_path).unwrap();
 
         MessageBuilder::new()
+            .subject(subject)
             .from(email_address.to_string())
             .to(receiver_address.to_string())
             .attachment(
