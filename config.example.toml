@@ -11,6 +11,7 @@ workspace = 'D:\work\c++\study' # 工作目录 将会在此目录下创建新的
 [zip]
 dir_path = "" # 压缩文件夹的路径 必填参数
 ignore = [".vs", "Debug", "Release", "x64", ".git"] # 压缩时忽略的文件夹
+password = "" # 压缩文件的密码 如果不需要密码则不填写
 
 [mail]
 email = "" # 发送邮件的邮箱地址 必填参数
