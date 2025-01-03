@@ -1,9 +1,10 @@
-use std::path::Path;
+use std::{io::{Read, Write}, path::Path};
 
 use clap::Parser;
 use colored::Colorize;
 use toml::Table;
 use walkdir::WalkDir;
+use zip::ZipWriter;
 
 use crate::config::get_default_zip_file_name;
 
@@ -67,7 +68,12 @@ impl IntoIterator for &Zip {
 
 // 业务逻辑
 impl Zip {
-    pub fn _zip(dir_path_str: &str, ignore_dir: &mut Vec<String>, file_name_str: &str) {
+    pub fn _zip(
+        dir_path_str: &str,
+        ignore_dir: &mut Vec<String>,
+        file_name_str: &str,
+        config_obj: &Table,
+    ) {
         let mut dir_path = Path::new(dir_path_str).to_owned();
         let current_dir = std::env::current_dir().unwrap();
         if dir_path.is_relative() {
@@ -84,32 +90,37 @@ impl Zip {
             );
             std::process::exit(1);
         }
+        // 3. 复制文件
+        let zip_file = std::fs::File::create(current_dir.join(&file_name_str)).unwrap();
+        let mut zip_writer = ZipWriter::new(zip_file);
+        let mut options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .compression_level(Some(200));
+        // 如果config中含有密码，则使用
 
-        // 2. 生成一个临时文件夹
-        let temp_dir_name = get_random_name();
-        let temp_dir = dir_path.join(Path::new(&temp_dir_name));
-        match std::fs::create_dir_all(&temp_dir) {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("{} {}", "创建临时文件夹失败: ".red(), e);
-                std::process::exit(1);
+        let zip_table = config_obj.get("zip").unwrap().as_table().unwrap();
+        if let Some(password) = zip_table.get("password") {
+            // 如果密码存在
+            let password = password.as_str().unwrap();
+            if !password.is_empty() {
+                // 如果不是空字符串
+                options = options.with_aes_encryption(zip::AesMode::Aes256, password);
             }
         }
-
-        // 3. 复制文件
-        ignore_dir.push(temp_dir_name.clone());
-
         // 遍历当前文件夹下所有文件
         let it = WalkDir::new(&dir_path).into_iter();
+        let mut buf = Vec::new();
+
         for entry in it {
             let entry = entry.unwrap();
             let path = entry.path();
-            // 忽略的逻辑
             // 去除前缀
             let strip_prefix_str = path.strip_prefix(&dir_path).unwrap().to_str().unwrap();
-            // 通过路径分隔符分割
+            if strip_prefix_str == file_name_str {
+                continue;
+            }
+            // 通过路径分隔符分割 判断是否在忽略列表中
             let path_vec: Vec<&str> = strip_prefix_str.split(std::path::MAIN_SEPARATOR).collect();
-            // 判断是否在忽略列表中
             let mut is_ignore = false;
             for the_path_str in path_vec {
                 if ignore_dir.contains(&the_path_str.to_string()) {
@@ -120,42 +131,19 @@ impl Zip {
             if is_ignore {
                 continue;
             }
-            // 拷贝 如果是文件夹就创建文件夹
+            let unix_style_path = strip_prefix_str.replace("\\", "/");
             if path.is_dir() {
-                let new_dir = temp_dir.join(strip_prefix_str);
-                match std::fs::create_dir_all(&new_dir) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        eprintln!("{} {}", "创建文件夹失败: ".red(), e);
-                    }
-                }
-            } else {
-                let new_file = temp_dir.join(strip_prefix_str);
-                match std::fs::copy(path, &new_file) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        eprintln!("{} {}", "拷贝文件失败: ".red(), e);
-                    }
-                }
+                zip_writer.add_directory(unix_style_path, options).unwrap();
+            }else{
+                zip_writer.start_file(unix_style_path, options).unwrap();
+                let mut file = std::fs::File::open(path).unwrap();
+                file.read_to_end(&mut buf).unwrap();
+                zip_writer.write_all(&buf).unwrap();
+                buf.clear();
             }
         }
+        zip_writer.finish().unwrap();
 
-        // 4. 压缩文件夹
-        match sevenz_rust::compress_to_path(&temp_dir, &file_name_str) {
-            Ok(_) => {
-                println!("{} {}", "压缩成功:".green(), file_name_str);
-            }
-            Err(e) => {
-                eprintln!("{} {}", "压缩失败:".red(), e);
-            }
-        }
-        // 5. 删除临时文件夹
-        match std::fs::remove_dir_all(&temp_dir) {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("{} {}", "删除临时文件夹失败: ".red(), e);
-            }
-        }
         // 6. 打印压缩文件信息
         let zip_file = current_dir.join(&file_name_str);
         let zip_info = zip_file.metadata().unwrap();
@@ -174,16 +162,6 @@ impl Zip {
             .map(|v| v.as_str().unwrap().to_string())
             .collect::<Vec<String>>();
         let file_name_str = get_default_zip_file_name(config_obj);
-        Zip::_zip(dir_path_str, &mut ignore_dir, &file_name_str)
+        Zip::_zip(dir_path_str, &mut ignore_dir, &file_name_str, &config_obj)
     }
-}
-
-fn get_random_name() -> String {
-    use rand::distributions::Alphanumeric;
-    use rand::{thread_rng, Rng};
-    thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(16)
-        .map(char::from)
-        .collect()
 }
