@@ -62,6 +62,8 @@ impl IntoIterator for &Zip {
                 ),
             ));
         }
+        vec.push(("dir_path".to_string(), toml::Value::String(self.dir_path.clone())));
+
         vec.into_iter()
     }
 }
@@ -94,17 +96,15 @@ impl Zip {
         let zip_file = std::fs::File::create(current_dir.join(&file_name_str)).unwrap();
         let mut zip_writer = ZipWriter::new(zip_file);
         let mut options = zip::write::SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated)
-            .compression_level(Some(200));
+            .compression_method(zip::CompressionMethod::Deflated);
         // 如果config中含有密码，则使用
-
         let zip_table = config_obj.get("zip").unwrap().as_table().unwrap();
         if let Some(password) = zip_table.get("password") {
             // 如果密码存在
             let password = password.as_str().unwrap();
             if !password.is_empty() {
                 // 如果不是空字符串
-                options = options.with_aes_encryption(zip::AesMode::Aes256, password);
+                options = options.with_aes_encryption(zip::AesMode::Aes128, password);
             }
         }
         // 遍历当前文件夹下所有文件
@@ -135,7 +135,7 @@ impl Zip {
             if path.is_dir() {
                 zip_writer.add_directory(unix_style_path, options).unwrap();
             }else{
-                zip_writer.start_file(unix_style_path, options).unwrap();
+                zip_writer.start_file_from_path(unix_style_path, options).unwrap();
                 let mut file = std::fs::File::open(path).unwrap();
                 file.read_to_end(&mut buf).unwrap();
                 zip_writer.write_all(&buf).unwrap();
