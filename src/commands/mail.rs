@@ -4,7 +4,7 @@ use crate::config::get_default_zip_file_name;
 use chrono::Local;
 use clap::Parser;
 use colored::Colorize;
-use lettre::message::{header, SinglePart};
+use lettre::message::{header, Body, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
 
@@ -188,12 +188,17 @@ impl Mail {
 
         // 本地时间
         let systime = Local::now();
+        let body = Body::new(format!("{}", systime.format("%Y-%m-%d %H:%M:%S")));
         let message = Message::builder()
             .from(email_address.parse().unwrap())
             .to(receiver_address.parse().unwrap())
             .date(systime.into())
             .subject(subject)
-            .singlepart(attachment_singpart)
+            .multipart(
+                MultiPart::mixed().singlepart(
+                    SinglePart::builder().content_type(header::ContentType::TEXT_PLAIN).body(body),
+                ).singlepart(attachment_singpart)
+            )
             .unwrap();
 
         message
