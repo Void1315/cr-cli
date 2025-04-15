@@ -4,6 +4,7 @@ use config::init_config;
 use ::tokio;
 mod commands;
 mod config;
+mod tools;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]

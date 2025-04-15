@@ -1,13 +1,14 @@
 use std::{fs, io::Write, path::Path};
 
 use crate::config::get_default_zip_file_name;
+use base64::Engine;
 use chrono::Local;
 use clap::Parser;
 use colored::Colorize;
 use lettre::message::{header, Body, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport};
-
+use crate::tools::date::Date;
 use super::zip::Zip;
 use super::MyCommand;
 
@@ -171,6 +172,9 @@ impl Mail {
         let current_path = std::env::current_dir().unwrap();
         let attachment_path = current_path.join(attachment_path_str);
         let attachment_name = attachment_path.file_name().unwrap().to_str().unwrap(); // 附件名称
+        // 附件名称需要经过base64，在拼接=?utf-8?B? 尾部拼接?=
+        let mut attachment_name_base64 =  base64::prelude::BASE64_STANDARD.encode(attachment_name.as_bytes());
+        attachment_name_base64 = format!("=?utf-8?B?{}?=", attachment_name_base64);
         let subject = format!("{}_{}_{}", class_name, user_name, time_str);
         // 判断附件路径是否存在
         if !attachment_path.exists() {
@@ -178,21 +182,21 @@ impl Mail {
             std::process::exit(1);
         }
         // 读取附件内容
+        
         let file_data = fs::read(&attachment_path).unwrap();
         let attachment_singpart: SinglePart = SinglePart::builder()
-            .header(header::ContentType::TEXT_PLAIN)
+            .header(header::ContentType::parse(mime::APPLICATION_OCTET_STREAM.essence_str()).unwrap())
             .header(lettre::message::header::ContentDisposition::attachment(
-                attachment_name,
+                &attachment_name_base64,
             ))
             .body(file_data);
 
         // 本地时间
         let systime = Local::now();
         let body = Body::new(format!("{}", systime.format("%Y-%m-%d %H:%M:%S")));
-        let message = Message::builder()
+        let mut message = Message::builder()
             .from(email_address.parse().unwrap())
             .to(receiver_address.parse().unwrap())
-            .date(systime.into())
             .subject(subject)
             .multipart(
                 MultiPart::mixed().singlepart(
@@ -200,7 +204,7 @@ impl Mail {
                 ).singlepart(attachment_singpart)
             )
             .unwrap();
-
+        message.headers_mut().set(Date::now());
         message
     }
 }
